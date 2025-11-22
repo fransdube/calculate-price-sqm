@@ -26,9 +26,12 @@ function calculate_price_sqm_shortcode() {
         }
     }
 
+    $image_url = plugins_url( 'assets/images/lawn-mower.jpg', __FILE__ );
+
     ob_start();
     ?>
     <div class="container">
+        <img src="<?php echo esc_url( $image_url ); ?>" alt="Lawn mower" class="img-fluid mb-3" />
         <form method="post">
             <div class="mb-3">
                 <label for="sqm" class="form-label">Area in Square Meters</label>
