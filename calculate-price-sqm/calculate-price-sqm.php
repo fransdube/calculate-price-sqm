@@ -12,33 +12,61 @@ function calculate_price_sqm_enqueue_scripts() {
 }
 add_action( 'wp_enqueue_scripts', 'calculate_price_sqm_enqueue_scripts' );
 
-function calculate_price_sqm_shortcode() {
+function calculate_grass_cutting_price( $sqm ) {
     $price_per_sqm = 0.5;
-    $total_price = '';
+    $area = floatval( $sqm );
+    if ( $area > 0 ) {
+        return $area * $price_per_sqm;
+    }
+    return false;
+}
 
-    if ( isset( $_POST['calculate_price'] ) && isset( $_POST['sqm'] ) ) {
-        $sqm = floatval( $_POST['sqm'] );
-        if ( $sqm > 0 ) {
-            $calculated_price = $sqm * $price_per_sqm;
-            $total_price = '<div class="alert alert-success mt-3">The calculated price is: $' . number_format( $calculated_price, 2 ) . '</div>';
-        } else {
-            $total_price = '<div class="alert alert-danger mt-3">Please enter a valid area.</div>';
+function calculate_price_sqm_shortcode() {
+    $image_url = plugins_url( 'assets/images/lawn-mower.jpg', __FILE__ );
+    return '<img src="' . esc_url( $image_url ) . '" alt="Lawn mower" class="img-fluid mb-3" />';
+}
+add_shortcode( 'calculate_price_sqm', 'calculate_price_sqm_shortcode' );
+
+add_action( 'gform_after_submission_5', 'calculate_price_after_submission', 10, 2 );
+function calculate_price_after_submission( $entry, $form ) {
+    // Find the 'Quantity' and 'Price' fields
+    $quantity_field_id = '';
+    $price_field_id = '';
+
+    foreach ( $form['fields'] as $field ) {
+        if ( $field->label == 'Quantity' ) {
+            $quantity_field_id = $field->id;
+        }
+        if ( $field->label == 'Price' ) {
+            $price_field_id = $field->id;
         }
     }
 
-    ob_start();
-    ?>
-    <div class="container">
-        <form method="post">
-            <div class="mb-3">
-                <label for="sqm" class="form-label">Area in Square Meters</label>
-                <input type="number" step="0.01" class="form-control" id="sqm" name="sqm" required>
-            </div>
-            <button type="submit" name="calculate_price" class="btn btn-primary">Calculate Price</button>
-        </form>
-        <?php echo $total_price; ?>
-    </div>
-    <?php
-    return ob_get_clean();
+    if ( ! empty( $quantity_field_id ) && ! empty( $price_field_id ) ) {
+        $quantity = rgar( $entry, $quantity_field_id );
+        $price = calculate_grass_cutting_price( $quantity );
+
+        if ( $price !== false ) {
+            // Update the 'Price' field in the entry
+            GFAPI::update_entry_field( $entry['id'], $price_field_id, $price );
+        }
+    }
 }
-add_shortcode( 'calculate_price_sqm', 'calculate_price_sqm_shortcode' );
+
+add_filter( 'gform_confirmation_5', 'custom_confirmation_message', 10, 4 );
+function custom_confirmation_message( $confirmation, $form, $entry, $ajax ) {
+    // Find the 'Price' field
+    $price_field_id = '';
+    foreach ( $form['fields'] as $field ) {
+        if ( $field->label == 'Price' ) {
+            $price_field_id = $field->id;
+        }
+    }
+
+    if ( ! empty( $price_field_id ) ) {
+        $price = rgar( $entry, $price_field_id );
+        $confirmation .= '<div class="alert alert-success mt-3">The calculated price is: $' . number_format( $price, 2 ) . '</div>';
+    }
+
+    return $confirmation;
+}
