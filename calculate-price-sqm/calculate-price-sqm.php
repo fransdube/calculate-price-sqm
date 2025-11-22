@@ -49,6 +49,15 @@ function calculate_price_after_submission( $entry, $form ) {
         if ( $price !== false ) {
             // Update the 'Price' field in the entry
             GFAPI::update_entry_field( $entry['id'], $price_field_id, $price );
+
+            // Send the data to the external API
+            $endpoint_url = 'https://calculate.free.beeceptor.com';
+            $body = array(
+                'quantity' => $quantity,
+                'price' => $price,
+            );
+
+            wp_remote_post( $endpoint_url, array( 'body' => $body ) );
         }
     }
 }
